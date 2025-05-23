@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <SFML/Audio.hpp>
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
@@ -9,257 +9,247 @@ using namespace sf;
 using namespace std;
 
 int main() {
-    RenderWindow window(VideoMode::getDesktopMode(), "shtasgm", Style::None); // fullscreen window
-    window.setMouseCursorVisible(false); // hide cursor
+    RenderWindow window(VideoMode::getDesktopMode(), "shtasgm", Style::None);
+    window.setMouseCursorVisible(false);
     Clock clock;
 
     // textures and font
-    const Texture bg1Sprite("bg_1.png");
-    const Texture bg2Sprite("bg_2.png");
-    const Texture bg3Sprite("bg_3.png");
-    const Texture playerSprite("char_spritesheet.png");
-    const Font font("font.ttf");
+    Texture bg1Sprite("bg_1.png");
+    Texture bg2Sprite("bg_2.png");
+    Texture bg3Sprite("bg_3.png");
+    Texture playerSprite("char_spritesheet.png");
+    Texture enemySprite("enemy_spritesheet.png");
+    Texture heartSprite("heart_spritesheet.png");
+    Font font("font.ttf");
 
     // sprites
-    Sprite bg1(bg1Sprite);
-    Sprite bg2(bg2Sprite);
-    Sprite bg3(bg3Sprite);
-    Sprite player(playerSprite);
+    Sprite bg1(bg1Sprite), bg2(bg2Sprite), bg3(bg3Sprite);
+    Sprite player(playerSprite), enemy(enemySprite), heart(heartSprite);
 
-    // text overlay
-    Text text(font, "A or D : Move Left or Right\nSpace : Jump\nLeft Click : Attack\nBackspace : KYS\nDelete : Respawn\nEscape : Exit Game", 30);
+    // constants
+    const int frameWidth = 56, frameHeight = 56;
+    const float scale = 5.f, animationSpeed = 0.075f;
+    const float playerMoveSpeed = 250.f, enemyMoveSpeed = 125.f;
+    const float ground = 745.f;
+
+    // animation, movement and cooldown
+    Vector2f playerVelocity(0.f, 0.f), enemyVelocity(0.f, 0.f);
+    float playerFrameTimer = 0.f, enemyFrameTimer = 0.f;
+    float enemyAttackCooldown = 1.f, enemyAttackTimer = 0.f;
+    float damageCooldown = 0.5f, playerDamageTimer = 2.f, enemyDamageTimer = 2.f;
+    float enemyStaggerDuration = 1.f;
+
+    // frame indices
+    int playerTotalAttack = 6, playerAttackX = 0, playerAttackY = 2;
+    int playerTotalCharge = 6, playerChargeX = 0, playerChargeY = 3;
+    int playerTotalDeath = 4, playerDeathX = 0, playerDeathY = 6;
+    int playerTotalIdle = 6, playerIdleX = 0, playerIdleY = 0;
+    int playerTotalRun = 8, playerRunX = 0, playerRunY = 1;
+
+    int enemyTotalAttack = 6, enemyAttackX = 0, enemyAttackY = 2;
+    int enemyTotalCharge = 6, enemyChargeX = 0, enemyChargeY = 3;
+    int enemyTotalDeath = 4, enemyDeathX = 0, enemyDeathY = 5;
+    int enemyTotalIdle = 6, enemyIdleX = 0, enemyIdleY = 0;
+    int enemyTotalRun = 8, enemyRunX = 0, enemyRunY = 1;
+
+    // atates
+    int playerAttacking = 0, playerCharging = 0, playerMoving = 0, playerDead = 0, playerHp = 6;
+    int enemyAttacking = 0, enemyCharging = 0, enemyMoving = 0, enemyDead = 0, enemyHp = 2;
+
+    // player setup
+    player.setScale({ scale, scale });
+    player.setOrigin({ frameWidth, 0 });
+    player.setPosition({ 33 + scale * frameWidth, ground });
+
+    // enemy setup
+    enemy.setScale({ -scale, scale });
+    enemy.setOrigin({ 0, 0 });
+    enemy.setPosition({ 1607 + scale * frameWidth, ground });
+
+    // UI setup
+    Text text(font, "A or D : Move Left or Right\nLeft Click : Attack\nDelete : Respawn\nEscape : Exit Game", 30);
     text.setPosition({ 20.f, 10.f });
     text.setOutlineColor(Color::Black);
     text.setOutlineThickness(3);
+    heart.setPosition({ 1742.f, 10.f });
 
-    // sprite dimensions (in px)
-    const int frameWidth = 56;
-    const int frameHeight = 56;
-
-    // movement and animation settings
-    const float animationSpeed = 0.075f; // seconds per frame
-    const float moveSpeed = 250.f;       // movement speed multiplier
-    const float jumpSpeed = -250.f;      // jump speed multiplier
-    const float ground = 751.f;          // Y position of the ground
-    const float gravity = 980.f;         // gravity force
-    Vector2f velocity(0.f, 0.f);         // velocity of the player on both axes
-    float frameTimer = 0.f;              // animation frame timer
-
-    // animation frame indices
-    int totalIdle = 6;
-    int idleX = 0;
-    int idleY = 0;
-    int totalRun = 8;
-    int runX = 0;
-    int runY = 2;
-    int totalAttack = 6;
-    int attackX = 0;
-    int attackY = 1;
-    int totalJump = 5;
-    int jumpX = 0;
-    int jumpY = 3;
-    int totalFall = 5;
-    int fallX = 0;
-    int fallY = 4;
-    int totalDeath1 = 8;
-    int totalDeath2 = 4;
-    int deathX = 0;
-    int deathY = 5;
-
-    // player states
-    int onGround = 0;
-    int attacking = 0;
-    int jumping = 0;
-    int falling = 0;
-    int moving = 0;
-    int dying = 0;
-    int dead = 0;
-
-    // setup player initial position and scaling
-    player.setScale({ 4.f, 4.f }); // scale up sprite size 4x
-    player.setOrigin({ frameWidth, 0 }); // set origin for flipping
-    player.setPosition({ 33 + 4 * frameWidth, ground + 0.5f });
-
-    // main game loop
     while (window.isOpen()) {
-        float dt = clock.restart().asSeconds(); // frame delta time
+        float dt = clock.restart().asSeconds();
 
-        // poll system events
         while (optional event = window.pollEvent()) {
             if (Keyboard::isKeyPressed(Keyboard::Key::Escape)) {
-                window.close(); // closes the window if escape is pressed
+                window.close();
             }
         }
 
-        // initialize movement vector
-        velocity.x = 0.f;
-        moving = 0;
+        // reset movement and update timers
+        playerVelocity.x = 0.f;
+        enemyVelocity.x = 0.f;
+        playerMoving = enemyMoving = 0;
+        enemyAttackTimer += dt;
+        playerDamageTimer += dt;
+        enemyDamageTimer += dt;
+
+        // hearts and damage flashing
+        heart.setTextureRect(IntRect({ 0, (6 - playerHp) * frameWidth }, { 3 * frameWidth, frameHeight }));
+        player.setColor(playerDamageTimer < damageCooldown ? Color(255, 0, 0) : Color(255, 255, 255));
+        enemy.setColor(enemyDamageTimer < damageCooldown ? Color(255, 0, 0) : Color(255, 255, 255));
 
         // handle input
-        if (dead) {
-            // allow respawn if dead
+        if (!playerHp) {
             if (Keyboard::isKeyPressed(Keyboard::Key::Delete)) {
-                dead = 0;
-                player.setPosition({ 33 + 4 * frameWidth, ground + 0.5f });
+                playerHp = 6;
+                player.setPosition({ 33 + scale * frameWidth, ground });
+                playerDead = 0;
             }
         }
-        else {
-            // only accept movement and action input if not dying or attacking
-            if (!dying && !attacking) {
-                // move right
-                if (Keyboard::isKeyPressed(Keyboard::Key::D)) {
-                    moving = 1;
-                    velocity.x += moveSpeed;
-                    player.setScale({ 4.f, 4.f }); // face right
-                    player.setOrigin({ frameWidth, 0 });
-                }
-                // move left
-                if (Keyboard::isKeyPressed(Keyboard::Key::A)) {
-                    moving = 1;
-                    velocity.x -= moveSpeed;
-                    player.setScale({ -4.f, 4.f }); // face left (flip horizontally)
-                    player.setOrigin({ 0, 0 });
-                }
-                // jump
-                if (Keyboard::isKeyPressed(Keyboard::Key::Space) && onGround) {
-                    velocity.y = jumpSpeed;
-                    jumpX = 0;
-                    fallX = 0;
-                    onGround = 0;
-                }
-                // attack (only allowed when idle or moving)
-                if (Mouse::isButtonPressed(Mouse::Button::Left) && !jumping && !falling && !attacking) {
-                    attacking = 1;
-                    attackX = 0;
-                }
-                // trigger death animation
-                if (Keyboard::isKeyPressed(Keyboard::Key::Backspace)) {
-                    dying = 1;
-                }
+        else if (playerHp && !playerAttacking && !playerCharging) {
+            if (Keyboard::isKeyPressed(Keyboard::Key::D)) {
+                playerMoving = 1;
+                playerVelocity.x += playerMoveSpeed;
+                player.setScale({ scale, scale });
+                player.setOrigin({ frameWidth, 0 });
+            }
+            if (Keyboard::isKeyPressed(Keyboard::Key::A)) {
+                playerMoving = 1;
+                playerVelocity.x -= playerMoveSpeed;
+                player.setScale({ -scale, scale });
+                player.setOrigin({ 0, 0 });
+            }
+            if (Mouse::isButtonPressed(Mouse::Button::Left)) {
+                playerAttacking = 1;
+                playerAttackX = 0;
+            }
+            else if (Mouse::isButtonPressed(Mouse::Button::Right)) {
+                playerCharging = 1;
+                playerChargeX = 0;
             }
         }
 
-        velocity.y += gravity * dt; // apply gravity
-        player.move(velocity * dt); // apply horizontal and vertical movement
+        // enemy AI
+        if (!enemyDead) {
+            float distance = player.getPosition().x - enemy.getPosition().x;
+            if (distance >= frameWidth) {
+                enemyMoving = 1;
+                enemyVelocity.x += enemyMoveSpeed;
+                enemy.setScale({ scale, scale });
+                enemy.setOrigin({ frameWidth, 0 });
+            }
+            else if (distance <= -frameWidth) {
+                enemyMoving = 1;
+                enemyVelocity.x -= enemyMoveSpeed;
+                enemy.setScale({ -scale, scale });
+                enemy.setOrigin({ 0, 0 });
+            }
+            else if (!playerDead && enemyAttackTimer >= enemyAttackCooldown && enemyDamageTimer >= enemyStaggerDuration) {
+                enemyAttacking = 1;
+                enemyAttackTimer = 0.f;
+                enemyVelocity.x = 0.f;
+            }
+        }
 
-        // determine player state in the air
-        if (!onGround) {
-            if (velocity.y < 0) {
-                jumping = 1;
-            }
-            else if (velocity.y > 0) {
-                falling = 1;
-            }
-        }
+        player.move(playerVelocity * dt);
+        enemy.move(enemyVelocity * dt);
 
-        // clamp player to the ground
-        if (player.getPosition().y >= ground) {
-            player.setPosition({ player.getPosition().x, ground });
-            velocity.y = 0.f;
-            onGround = 1;
-        }
-        else {
-            onGround = 0;
-        }
-
-        // handle animation states
-        if (jumping) {
-            // jumping animation
-            frameTimer += dt;
-            if (frameTimer >= animationSpeed) {
-                frameTimer = 0.f;
-                jumpX++;
-                if (jumpX >= totalJump) {
-                    jumping = 0;
-                    jumpX = 0;
+        // animate player
+        if (playerAttacking) {
+            playerFrameTimer += dt;
+            if (playerFrameTimer >= animationSpeed) {
+                playerFrameTimer = 0.f;
+                if (++playerAttackX == 4 && enemyHp) {
+                    enemyHp--;
+                    enemyDamageTimer = 0.f;
                 }
-                else {
-                    player.setTextureRect(IntRect({ jumpX * frameWidth, jumpY * frameHeight }, { frameWidth, frameHeight }));
-                }
+                if (playerAttackX >= playerTotalAttack) playerAttacking = 0;
+                player.setTextureRect(IntRect({ playerAttackX * frameWidth, playerAttackY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
-        else if (falling) {
-            // falling animation
-            frameTimer += dt;
-            if (frameTimer >= animationSpeed) {
-                frameTimer = 0.f;
-                fallX++;
-                if (fallX >= totalFall) {
-                    falling = 0;
-                    fallX = 0;
-                }
-                else {
-                    player.setTextureRect(IntRect({ fallX * frameWidth, fallY * frameHeight }, { frameWidth, frameHeight }));
-                }
+        else if (playerCharging) {
+            playerFrameTimer += dt;
+            if (playerFrameTimer >= animationSpeed) {
+                playerFrameTimer = 0.f;
+                if (++playerChargeX >= playerTotalCharge) playerCharging = 0;
+                player.setTextureRect(IntRect({ playerChargeX * frameWidth, playerChargeY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
-        else if (attacking) {
-            // attacking animation
-            velocity.x = 0.f; // freeze horizontal movement while attacking
-            frameTimer += dt;
-            if (frameTimer >= animationSpeed) {
-                frameTimer = 0.f;
-                attackX++;
-                if (attackX >= totalAttack) {
-                    attacking = 0;
-                    attackX = 0;
-                }
-                else {
-                    player.setTextureRect(IntRect({ attackX * frameWidth, attackY * frameHeight }, { frameWidth, frameHeight }));
-                }
+        else if (!playerHp && !playerDead) {
+            playerFrameTimer += dt;
+            if (playerFrameTimer >= animationSpeed) {
+                playerFrameTimer = 0.f;
+                if (++playerDeathX >= playerTotalDeath) playerDead = 1;
+                player.setTextureRect(IntRect({ playerDeathX * frameWidth, playerDeathY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
-        else if (moving) {
-            // running animation
-            frameTimer += dt;
-            if (frameTimer >= animationSpeed) {
-                frameTimer = 0.f;
-                runX = (runX + 1) % totalRun;
-                player.setTextureRect(IntRect({ runX * frameWidth, runY * frameHeight }, { frameWidth, frameHeight }));
-            }
-        }
-        else if (dying) {
-            // death animation
-            frameTimer += dt;
-            if (frameTimer >= animationSpeed) {
-                frameTimer = 0.f;
-                deathX++;
-                if (deathX >= totalDeath1 && deathY == 5) {
-                    deathX = 0;
-                    deathY = 6;
-                }
-                else if (deathX >= totalDeath2 && deathY == 6) {
-                    deathX = 0;
-                    deathY = 5;
-                    dying = 0;
-                    dead = 1;
-                }
-                else {
-                    player.setTextureRect(IntRect({ deathX * frameWidth, deathY * frameHeight }, { frameWidth, frameHeight }));
-                }
-            }
-        }
-        else if (dead) {
-            // show death still frame
+        else if (playerDead) {
             player.setTextureRect(IntRect({ frameWidth * 3, frameHeight * 6 }, { frameWidth, frameHeight }));
         }
+        else if (playerMoving) {
+            playerFrameTimer += dt;
+            if (playerFrameTimer >= animationSpeed) {
+                playerFrameTimer = 0.f;
+                playerRunX = (playerRunX + 1) % playerTotalRun;
+                player.setTextureRect(IntRect({ playerRunX * frameWidth, playerRunY * frameHeight }, { frameWidth, frameHeight }));
+            }
+        }
         else {
-            // idle animation
-            frameTimer += dt;
-            if (frameTimer >= animationSpeed) {
-                frameTimer = 0.f;
-                idleX = (idleX + 1) % totalIdle;
-                player.setTextureRect(IntRect({ idleX * frameWidth, idleY * frameHeight }, { frameWidth, frameHeight }));
+            playerFrameTimer += dt;
+            if (playerFrameTimer >= animationSpeed) {
+                playerFrameTimer = 0.f;
+                playerIdleX = (playerIdleX + 1) % playerTotalIdle;
+                player.setTextureRect(IntRect({ playerIdleX * frameWidth, playerIdleY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
 
-        // render all objects
+        // animate enemy
+        if (enemyAttacking) {
+            enemyFrameTimer += dt;
+            if (enemyFrameTimer >= animationSpeed) {
+                enemyFrameTimer = 0.f;
+                if (++enemyAttackX == 4 && playerHp) {
+                    playerHp--;
+                    playerDamageTimer = 0.f;
+                }
+                if (enemyAttackX >= enemyTotalAttack) enemyAttacking = 0;
+                enemy.setTextureRect(IntRect({ enemyAttackX * frameWidth, enemyAttackY * frameHeight }, { frameWidth, frameHeight }));
+            }
+        }
+        else if (!enemyHp && !enemyDead) {
+            enemyFrameTimer += dt;
+            if (enemyFrameTimer >= animationSpeed) {
+                enemyFrameTimer = 0.f;
+                if (++enemyDeathX >= enemyTotalDeath) enemyDead = 1;
+                enemy.setTextureRect(IntRect({ enemyDeathX * frameWidth, enemyDeathY * frameHeight }, { frameWidth, frameHeight }));
+            }
+        }
+        else if (enemyDead) {
+            enemy.setTextureRect(IntRect({ frameWidth * 3, frameHeight * 5 }, { frameWidth, frameHeight }));
+        }
+        else if (enemyMoving) {
+            enemyFrameTimer += dt;
+            if (enemyFrameTimer >= animationSpeed) {
+                enemyFrameTimer = 0.f;
+                enemyRunX = (enemyRunX + 1) % enemyTotalRun;
+                enemy.setTextureRect(IntRect({ enemyRunX * frameWidth, enemyRunY * frameHeight }, { frameWidth, frameHeight }));
+            }
+        }
+        else {
+            enemyFrameTimer += dt;
+            if (enemyFrameTimer >= animationSpeed) {
+                enemyFrameTimer = 0.f;
+                enemyIdleX = (enemyIdleX + 1) % enemyTotalIdle;
+                enemy.setTextureRect(IntRect({ enemyIdleX * frameWidth, enemyIdleY * frameHeight }, { frameWidth, frameHeight }));
+            }
+        }
+
+        // render
         window.clear();
         window.draw(bg3);
         window.draw(bg2);
         window.draw(bg1);
         window.draw(text);
         window.draw(player);
+        window.draw(enemy);
+        window.draw(heart);
         window.display();
     }
     return 0;
