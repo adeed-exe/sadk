@@ -11,6 +11,7 @@ using namespace std;
 int main() {
     RenderWindow window(VideoMode::getDesktopMode(), "shtasgm", Style::None);
     window.setMouseCursorVisible(false);
+    window.setFramerateLimit(120);
     Clock clock;
 
     // textures and font
@@ -40,17 +41,17 @@ int main() {
     float enemyStaggerDuration = 1.f;
 
     // frame indices
-    int playerTotalAttack = 6, playerAttackX = 0, playerAttackY = 2;
-    int playerTotalCharge = 6, playerChargeX = 0, playerChargeY = 3;
-    int playerTotalDeath = 4, playerDeathX = 0, playerDeathY = 6;
-    int playerTotalIdle = 6, playerIdleX = 0, playerIdleY = 0;
-    int playerTotalRun = 8, playerRunX = 0, playerRunY = 1;
+    int playerTotalAttack = 5, playerAttackX = 0, playerAttackY = 2;
+    int playerTotalCharge = 5, playerChargeX = 0, playerChargeY = 3;
+    int playerTotalDeath = 3, playerDeathX = 0, playerDeathY = 6;
+    int playerTotalIdle = 5, playerIdleX = 0, playerIdleY = 0;
+    int playerTotalRun = 7, playerRunX = 0, playerRunY = 1;
 
-    int enemyTotalAttack = 6, enemyAttackX = 0, enemyAttackY = 2;
-    int enemyTotalCharge = 6, enemyChargeX = 0, enemyChargeY = 3;
-    int enemyTotalDeath = 4, enemyDeathX = 0, enemyDeathY = 5;
-    int enemyTotalIdle = 6, enemyIdleX = 0, enemyIdleY = 0;
-    int enemyTotalRun = 8, enemyRunX = 0, enemyRunY = 1;
+    int enemyTotalAttack = 5, enemyAttackX = 0, enemyAttackY = 2;
+    int enemyTotalCharge = 5, enemyChargeX = 0, enemyChargeY = 3;
+    int enemyTotalDeath = 3, enemyDeathX = 0, enemyDeathY = 5;
+    int enemyTotalIdle = 5, enemyIdleX = 0, enemyIdleY = 0;
+    int enemyTotalRun = 7, enemyRunX = 0, enemyRunY = 1;
 
     // atates
     int playerAttacking = 0, playerCharging = 0, playerMoving = 0, playerDead = 0, playerHp = 6;
