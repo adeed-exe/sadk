@@ -42,36 +42,56 @@ int main() {
 
     // frame indices
     int playerTotalAttack = 5, playerAttackX = 0, playerAttackY = 2;
-    int playerTotalCharge = 5, playerChargeX = 0, playerChargeY = 3;
     int playerTotalDeath = 3, playerDeathX = 0, playerDeathY = 6;
     int playerTotalIdle = 5, playerIdleX = 0, playerIdleY = 0;
     int playerTotalRun = 7, playerRunX = 0, playerRunY = 1;
 
     int enemyTotalAttack = 5, enemyAttackX = 0, enemyAttackY = 2;
-    int enemyTotalCharge = 5, enemyChargeX = 0, enemyChargeY = 3;
     int enemyTotalDeath = 3, enemyDeathX = 0, enemyDeathY = 5;
     int enemyTotalIdle = 5, enemyIdleX = 0, enemyIdleY = 0;
     int enemyTotalRun = 7, enemyRunX = 0, enemyRunY = 1;
 
-    // atates
-    int playerAttacking = 0, playerCharging = 0, playerMoving = 0, playerDead = 0, playerHp = 6;
-    int enemyAttacking = 0, enemyCharging = 0, enemyMoving = 0, enemyDead = 0, enemyHp = 2;
+    // states
+    int playerAttacking = 0, playerMoving = 0, playerDead = 0, playerHp = 6;
+    int enemyAttacking = 0, enemyMoving = 0, enemyDead = 0, enemyHp = 2;
+    int startScreen = 1, gamePlaying = 0, endScreen = 0;
 
-    // player setup
+    // character setup
+    player.setPosition({ window.getSize().x / 2.f - 300, ground });
+    enemy.setPosition({ window.getSize().x / 2.f + 300, ground });
     player.setScale({ scale, scale });
-    player.setOrigin({ frameWidth, 0 });
-    player.setPosition({ 33 + scale * frameWidth, ground });
-
-    // enemy setup
     enemy.setScale({ -scale, scale });
-    enemy.setOrigin({ 0, 0 });
-    enemy.setPosition({ 1607 + scale * frameWidth, ground });
 
     // UI setup
-    Text text(font, "A or D : Move Left or Right\nLeft Click : Attack\nRight Click : Charged Attack\nDelete : Respawn\nEscape : Exit Game", 30);
-    text.setPosition({ 20.f, 10.f });
-    text.setOutlineColor(Color::Black);
-    text.setOutlineThickness(3);
+    Text begin(font, "Press Space to Play!", 40);
+    begin.setOrigin(begin.getLocalBounds().getCenter());
+    begin.setPosition({ window.getSize().x / 2.f, window.getSize().y / 2.f });
+    begin.setOutlineColor(Color::Black);
+    begin.setOutlineThickness(4);
+    Text won(font, "You Won!", 50);
+    won.setOrigin(won.getLocalBounds().getCenter());
+    won.setPosition({ window.getSize().x / 2.f, window.getSize().y / 2.f - 30.f});
+    won.setOutlineColor(Color::Black);
+    won.setOutlineThickness(4);
+    Text won2(font, "Press Enter to Play Again or Escape to Exit", 30);
+    won2.setOrigin(won2.getLocalBounds().getCenter());
+    won2.setPosition({ window.getSize().x / 2.f, window.getSize().y / 2.f + 30.f });
+    won2.setOutlineColor(Color::Black);
+    won2.setOutlineThickness(4);
+    Text died(font, "You Died!", 50);
+    died.setOrigin(died.getLocalBounds().getCenter());
+    died.setPosition({ window.getSize().x / 2.f, window.getSize().y / 2.f - 30.f });
+    died.setOutlineColor(Color::Black);
+    died.setOutlineThickness(4);
+    Text died2(font, "Press Enter to Respawn or Escape to Exit", 30);
+    died2.setOrigin(died2.getLocalBounds().getCenter());
+    died2.setPosition({ window.getSize().x / 2.f, window.getSize().y / 2.f + 30.f });
+    died2.setOutlineColor(Color::Black);
+    died2.setOutlineThickness(4);
+    Text instructions(font, "A or D : Move Left or Right\nLeft Click : Attack", 30);
+    instructions.setPosition({ 20.f, 10.f });
+    instructions.setOutlineColor(Color::Black);
+    instructions.setOutlineThickness(3);
     heart.setPosition({ 1742.f, 10.f });
 
     while (window.isOpen()) {
@@ -81,6 +101,15 @@ int main() {
             if (Keyboard::isKeyPressed(Keyboard::Key::Escape)) {
                 window.close();
             }
+        }
+
+        // move player and enemy to the playing position
+        if (!(startScreen || endScreen) && !gamePlaying) {
+            player.setPosition({ 33.f + scale * frameWidth, ground });
+            player.setOrigin({ frameWidth, 0 });
+            enemy.setPosition({ window.getSize().x - 33.f, ground});
+            enemy.setOrigin({ 0, 0 });
+            gamePlaying = 1;
         }
 
         // reset movement and update timers
@@ -98,14 +127,24 @@ int main() {
         enemy.setColor(enemyDamageTimer < damageCooldown ? Color(255, 0, 0) : Color(255, 255, 255));
 
         // handle input
-        if (!playerHp) {
-            if (Keyboard::isKeyPressed(Keyboard::Key::Delete)) {
-                playerHp = 6;
-                player.setPosition({ 33 + scale * frameWidth, ground });
-                playerDead = 0;
+        if (startScreen) {
+            if (Keyboard::isKeyPressed(Keyboard::Key::Space)) {
+                startScreen = 0;
             }
         }
-        else if (playerHp && !playerAttacking && !playerCharging) {
+        else if (endScreen) {
+            if (Keyboard::isKeyPressed(Keyboard::Key::Enter)) {
+                playerHp = 6;
+                enemyHp = 2;
+                player.setPosition({ 33 + scale * frameWidth, ground });
+                enemy.setPosition({ 1607 + scale * frameWidth, ground });
+                playerDead = 0;
+                enemyDead = 0;
+                gamePlaying = 0;
+                endScreen = 0;
+            }
+        }
+        else if (gamePlaying && playerHp && !playerAttacking) {
             if (Keyboard::isKeyPressed(Keyboard::Key::D)) {
                 playerMoving = 1;
                 playerVelocity.x += playerMoveSpeed;
@@ -122,30 +161,28 @@ int main() {
                 playerAttacking = 1;
                 playerAttackX = 0;
             }
-            else if (Mouse::isButtonPressed(Mouse::Button::Right)) {
-                playerCharging = 1;
-                playerChargeX = 0;
-            }
         }
 
         // enemy AI
-        if (!enemyDead) {
-            if (distance >= frameWidth) {
-                enemyMoving = 1;
-                enemyVelocity.x += enemyMoveSpeed;
-                enemy.setScale({ scale, scale });
-                enemy.setOrigin({ frameWidth, 0 });
-            }
-            else if (distance <= -frameWidth) {
-                enemyMoving = 1;
-                enemyVelocity.x -= enemyMoveSpeed;
-                enemy.setScale({ -scale, scale });
-                enemy.setOrigin({ 0, 0 });
-            }
-            else if (!playerDead && enemyAttackTimer >= enemyAttackCooldown && enemyDamageTimer >= enemyStaggerDuration) {
-                enemyAttacking = 1;
-                enemyAttackTimer = 0.f;
-                enemyVelocity.x = 0.f;
+        if (gamePlaying) {
+            if (!enemyDead) {
+                if (distance >= frameWidth) {
+                    enemyMoving = 1;
+                    enemyVelocity.x += enemyMoveSpeed;
+                    enemy.setScale({ scale, scale });
+                    enemy.setOrigin({ frameWidth, 0 });
+                }
+                else if (distance <= -frameWidth) {
+                    enemyMoving = 1;
+                    enemyVelocity.x -= enemyMoveSpeed;
+                    enemy.setScale({ -scale, scale });
+                    enemy.setOrigin({ 0, 0 });
+                }
+                else if (!playerDead && enemyAttackTimer >= enemyAttackCooldown && enemyDamageTimer >= enemyStaggerDuration) {
+                    enemyAttacking = 1;
+                    enemyAttackTimer = 0.f;
+                    enemyVelocity.x = 0.f;
+                }
             }
         }
 
@@ -161,27 +198,15 @@ int main() {
                     enemyHp--;
                     enemyDamageTimer = 0.f;
                 }
-                if (playerAttackX >= playerTotalAttack) playerAttacking = 0;
+                if (playerAttackX >= playerTotalAttack) playerAttacking = 0, playerAttackX = 0;
                 player.setTextureRect(IntRect({ playerAttackX * frameWidth, playerAttackY * frameHeight }, { frameWidth, frameHeight }));
-            }
-        }
-        else if (playerCharging) {
-            playerFrameTimer += dt;
-            if (playerFrameTimer >= animationSpeed) {
-                playerFrameTimer = 0.f;
-                if (++playerAttackX == 4 && enemyHp && fabs(distance) <= frameWidth) {
-                    enemyHp -= 2;
-                    enemyDamageTimer = 0.f;
-                }
-                if (++playerChargeX >= playerTotalCharge) playerCharging = 0;
-                player.setTextureRect(IntRect({ playerChargeX * frameWidth, playerChargeY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
         else if (!playerHp && !playerDead) {
             playerFrameTimer += dt;
             if (playerFrameTimer >= animationSpeed) {
                 playerFrameTimer = 0.f;
-                if (++playerDeathX >= playerTotalDeath) playerDead = 1;
+                if (++playerDeathX >= playerTotalDeath) playerDead = 1, endScreen = 1;
                 player.setTextureRect(IntRect({ playerDeathX * frameWidth, playerDeathY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
@@ -214,7 +239,7 @@ int main() {
                     playerHp--;
                     playerDamageTimer = 0.f;
                 }
-                if (enemyAttackX >= enemyTotalAttack) enemyAttacking = 0;
+                if (enemyAttackX >= enemyTotalAttack) enemyAttacking = 0, enemyAttackX = 0;
                 enemy.setTextureRect(IntRect({ enemyAttackX * frameWidth, enemyAttackY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
@@ -222,7 +247,7 @@ int main() {
             enemyFrameTimer += dt;
             if (enemyFrameTimer >= animationSpeed) {
                 enemyFrameTimer = 0.f;
-                if (++enemyDeathX >= enemyTotalDeath) enemyDead = 1;
+                if (++enemyDeathX >= enemyTotalDeath) enemyDead = 1, endScreen = 1;
                 enemy.setTextureRect(IntRect({ enemyDeathX * frameWidth, enemyDeathY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
@@ -251,10 +276,25 @@ int main() {
         window.draw(bg3);
         window.draw(bg2);
         window.draw(bg1);
-        window.draw(text);
         window.draw(player);
         window.draw(enemy);
-        window.draw(heart);
+        if (startScreen) {
+            window.draw(begin);
+        }
+        else if (endScreen) {
+            if (!enemyHp) {
+                window.draw(won);
+                window.draw(won2);
+            }
+            else {
+                window.draw(died);
+                window.draw(died2);
+            }
+        }
+        else {
+            window.draw(instructions);
+            window.draw(heart);
+        }
         window.display();
     }
     return 0;
