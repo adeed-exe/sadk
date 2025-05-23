@@ -68,7 +68,7 @@ int main() {
     enemy.setPosition({ 1607 + scale * frameWidth, ground });
 
     // UI setup
-    Text text(font, "A or D : Move Left or Right\nLeft Click : Attack\nDelete : Respawn\nEscape : Exit Game", 30);
+    Text text(font, "A or D : Move Left or Right\nLeft Click : Attack\nRight Click : Charged Attack\nDelete : Respawn\nEscape : Exit Game", 30);
     text.setPosition({ 20.f, 10.f });
     text.setOutlineColor(Color::Black);
     text.setOutlineThickness(3);
@@ -90,6 +90,7 @@ int main() {
         enemyAttackTimer += dt;
         playerDamageTimer += dt;
         enemyDamageTimer += dt;
+        float distance = player.getPosition().x - enemy.getPosition().x;
 
         // hearts and damage flashing
         heart.setTextureRect(IntRect({ 0, (6 - playerHp) * frameWidth }, { 3 * frameWidth, frameHeight }));
@@ -129,7 +130,6 @@ int main() {
 
         // enemy AI
         if (!enemyDead) {
-            float distance = player.getPosition().x - enemy.getPosition().x;
             if (distance >= frameWidth) {
                 enemyMoving = 1;
                 enemyVelocity.x += enemyMoveSpeed;
@@ -157,7 +157,7 @@ int main() {
             playerFrameTimer += dt;
             if (playerFrameTimer >= animationSpeed) {
                 playerFrameTimer = 0.f;
-                if (++playerAttackX == 4 && enemyHp) {
+                if (++playerAttackX == 4 && enemyHp && fabs(distance) <= frameWidth) {
                     enemyHp--;
                     enemyDamageTimer = 0.f;
                 }
@@ -169,6 +169,10 @@ int main() {
             playerFrameTimer += dt;
             if (playerFrameTimer >= animationSpeed) {
                 playerFrameTimer = 0.f;
+                if (++playerAttackX == 4 && enemyHp && fabs(distance) <= frameWidth) {
+                    enemyHp -= 2;
+                    enemyDamageTimer = 0.f;
+                }
                 if (++playerChargeX >= playerTotalCharge) playerCharging = 0;
                 player.setTextureRect(IntRect({ playerChargeX * frameWidth, playerChargeY * frameHeight }, { frameWidth, frameHeight }));
             }
@@ -206,7 +210,7 @@ int main() {
             enemyFrameTimer += dt;
             if (enemyFrameTimer >= animationSpeed) {
                 enemyFrameTimer = 0.f;
-                if (++enemyAttackX == 4 && playerHp) {
+                if (++enemyAttackX == 4 && playerHp && fabs(distance) <= frameWidth) {
                     playerHp--;
                     playerDamageTimer = 0.f;
                 }
