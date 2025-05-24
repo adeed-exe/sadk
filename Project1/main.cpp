@@ -14,18 +14,38 @@ int main() {
     window.setFramerateLimit(120);
     Clock clock;
 
-    // textures and font
-    Texture bg1Sprite("bg_1.png");
-    Texture bg2Sprite("bg_2.png");
-    Texture bg3Sprite("bg_3.png");
-    Texture playerSprite("char_spritesheet.png");
-    Texture enemySprite("enemy_spritesheet.png");
-    Texture heartSprite("heart_spritesheet.png");
-    Font font("font.ttf");
+    // resources
+    Texture bg1Sprite("Assets/Sprites/bg_1.png");
+    Texture bg2Sprite("Assets/Sprites/bg_2.png");
+    Texture bg3Sprite("Assets/Sprites/bg_3.png");
+    Texture playerSprite("Assets/Sprites/char_spritesheet.png");
+    Texture enemySprite("Assets/Sprites/enemy_spritesheet.png");
+    Texture heartSprite("Assets/Sprites/heart_spritesheet.png");
+    Font font("Assets/Fonts/font.ttf");
+    SoundBuffer runBuffer("Assets/Audio/run.wav");
+    SoundBuffer attackBuffer("Assets/Audio/attack.wav");
+    SoundBuffer ostBuffer("Assets/Audio/ost.mp3");
+    SoundBuffer victoryBuffer("Assets/Audio/victory.wav");
+    SoundBuffer defeatBuffer("Assets/Audio/defeat.wav");
 
     // sprites
     Sprite bg1(bg1Sprite), bg2(bg2Sprite), bg3(bg3Sprite);
     Sprite player(playerSprite), enemy(enemySprite), heart(heartSprite);
+
+    // sounds
+    Sound playerRun(runBuffer);
+    Sound enemyRun(runBuffer);
+    playerRun.setVolume(60.f);
+    Sound playerAttack(attackBuffer);
+    playerAttack.setVolume(120);
+    Sound ost(ostBuffer);
+    ost.setLooping(true);
+    ost.setVolume(30.f);
+    ost.play();
+    Sound victory(victoryBuffer);
+    victory.setVolume(50.f);
+    Sound defeat(defeatBuffer);
+    defeat.setVolume(30.f);
 
     // constants
     const int frameWidth = 56, frameHeight = 56;
@@ -52,8 +72,8 @@ int main() {
     int enemyTotalRun = 7, enemyRunX = 0, enemyRunY = 1;
 
     // states
-    int playerAttacking = 0, playerMoving = 0, playerDead = 0, playerHp = 6;
-    int enemyAttacking = 0, enemyMoving = 0, enemyDead = 0, enemyHp = 2;
+    int playerAttacking = 0, playerRunning = 0, playerDead = 0, playerHp = 6;
+    int enemyAttacking = 0, enemyRunning = 0, enemyDead = 0, enemyHp = 2;
     int startScreen = 1, gamePlaying = 0, endScreen = 0;
 
     // character setup
@@ -92,7 +112,8 @@ int main() {
     instructions.setPosition({ 20.f, 10.f });
     instructions.setOutlineColor(Color::Black);
     instructions.setOutlineThickness(3);
-    heart.setPosition({ 1742.f, 10.f });
+    heart.setOrigin({ frameWidth * 1.5f, frameHeight / 2.f });
+    heart.setScale({ 0.65f, 0.65f });
 
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
@@ -109,13 +130,14 @@ int main() {
             player.setOrigin({ frameWidth, 0 });
             enemy.setPosition({ window.getSize().x - 33.f, ground});
             enemy.setOrigin({ 0, 0 });
+            heart.setPosition({ player.getPosition().x - 144.f, player.getPosition().y + 113.f });
             gamePlaying = 1;
         }
 
         // reset movement and update timers
         playerVelocity.x = 0.f;
         enemyVelocity.x = 0.f;
-        playerMoving = enemyMoving = 0;
+        playerRunning = enemyRunning = 0;
         enemyAttackTimer += dt;
         playerDamageTimer += dt;
         enemyDamageTimer += dt;
@@ -123,8 +145,9 @@ int main() {
 
         // hearts and damage flashing
         heart.setTextureRect(IntRect({ 0, (6 - playerHp) * frameWidth }, { 3 * frameWidth, frameHeight }));
-        player.setColor(playerDamageTimer < damageCooldown ? Color(255, 0, 0) : Color(255, 255, 255));
-        enemy.setColor(enemyDamageTimer < damageCooldown ? Color(255, 0, 0) : Color(255, 255, 255));
+        player.setColor(playerDamageTimer < damageCooldown ? Color(255, 0, 0, 128) : Color(255, 255, 255));
+        heart.setColor(playerDamageTimer < damageCooldown * 0.2f ? Color(255, 255, 255, 0) : Color(255, 255, 255));
+        enemy.setColor(enemyDamageTimer < damageCooldown ? Color(255, 0, 0, 128) : Color(255, 255, 255));
 
         // handle input
         if (startScreen) {
@@ -133,26 +156,26 @@ int main() {
             }
         }
         else if (endScreen) {
+            ost.stop();
             if (Keyboard::isKeyPressed(Keyboard::Key::Enter)) {
                 playerHp = 6;
                 enemyHp = 2;
-                player.setPosition({ 33 + scale * frameWidth, ground });
-                enemy.setPosition({ 1607 + scale * frameWidth, ground });
                 playerDead = 0;
                 enemyDead = 0;
                 gamePlaying = 0;
                 endScreen = 0;
+                ost.play();
             }
         }
         else if (gamePlaying && playerHp && !playerAttacking) {
             if (Keyboard::isKeyPressed(Keyboard::Key::D)) {
-                playerMoving = 1;
+                playerRunning = 1;
                 playerVelocity.x += playerMoveSpeed;
                 player.setScale({ scale, scale });
                 player.setOrigin({ frameWidth, 0 });
             }
             if (Keyboard::isKeyPressed(Keyboard::Key::A)) {
-                playerMoving = 1;
+                playerRunning = 1;
                 playerVelocity.x -= playerMoveSpeed;
                 player.setScale({ -scale, scale });
                 player.setOrigin({ 0, 0 });
@@ -167,13 +190,13 @@ int main() {
         if (gamePlaying) {
             if (!enemyDead) {
                 if (distance >= frameWidth) {
-                    enemyMoving = 1;
+                    enemyRunning = 1;
                     enemyVelocity.x += enemyMoveSpeed;
                     enemy.setScale({ scale, scale });
                     enemy.setOrigin({ frameWidth, 0 });
                 }
                 else if (distance <= -frameWidth) {
-                    enemyMoving = 1;
+                    enemyRunning = 1;
                     enemyVelocity.x -= enemyMoveSpeed;
                     enemy.setScale({ -scale, scale });
                     enemy.setOrigin({ 0, 0 });
@@ -188,12 +211,17 @@ int main() {
 
         player.move(playerVelocity * dt);
         enemy.move(enemyVelocity * dt);
+        enemyRun.setVolume(clamp(60.f - std::abs(distance) / 800 * 60.f, 0.f, 60.f));
+        float heartOffsetX = player.getScale().x > 0 ? 144.f : 134.f;
+        float heartOffsetY = -113.f;
+        heart.setPosition({ player.getPosition().x - heartOffsetX, player.getPosition().y - heartOffsetY });
 
         // animate player
         if (playerAttacking) {
             playerFrameTimer += dt;
             if (playerFrameTimer >= animationSpeed) {
                 playerFrameTimer = 0.f;
+                if (playerAttackX == 0) playerAttack.play();
                 if (++playerAttackX == 4 && enemyHp && fabs(distance) <= frameWidth) {
                     enemyHp--;
                     enemyDamageTimer = 0.f;
@@ -206,18 +234,25 @@ int main() {
             playerFrameTimer += dt;
             if (playerFrameTimer >= animationSpeed) {
                 playerFrameTimer = 0.f;
-                if (++playerDeathX >= playerTotalDeath) playerDead = 1, endScreen = 1;
+                if (++playerDeathX >= playerTotalDeath) {
+                    playerDead = 1;
+                    endScreen = 1;
+                    defeat.play();
+                }
                 player.setTextureRect(IntRect({ playerDeathX * frameWidth, playerDeathY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
         else if (playerDead) {
             player.setTextureRect(IntRect({ frameWidth * 3, frameHeight * 6 }, { frameWidth, frameHeight }));
         }
-        else if (playerMoving) {
+        else if (playerRunning) {
             playerFrameTimer += dt;
             if (playerFrameTimer >= animationSpeed) {
                 playerFrameTimer = 0.f;
                 playerRunX = (playerRunX + 1) % playerTotalRun;
+                if (playerRunX == 0 || playerRunX == 4) {
+                    playerRun.play();
+                }
                 player.setTextureRect(IntRect({ playerRunX * frameWidth, playerRunY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
@@ -235,6 +270,7 @@ int main() {
             enemyFrameTimer += dt;
             if (enemyFrameTimer >= animationSpeed) {
                 enemyFrameTimer = 0.f;
+                if (enemyAttackX == 0) playerAttack.play();
                 if (++enemyAttackX == 4 && playerHp && fabs(distance) <= frameWidth) {
                     playerHp--;
                     playerDamageTimer = 0.f;
@@ -247,18 +283,25 @@ int main() {
             enemyFrameTimer += dt;
             if (enemyFrameTimer >= animationSpeed) {
                 enemyFrameTimer = 0.f;
-                if (++enemyDeathX >= enemyTotalDeath) enemyDead = 1, endScreen = 1;
+                if (++enemyDeathX >= enemyTotalDeath) {
+                    enemyDead = 1;
+                    endScreen = 1;
+                    victory.play();
+                }
                 enemy.setTextureRect(IntRect({ enemyDeathX * frameWidth, enemyDeathY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
         else if (enemyDead) {
             enemy.setTextureRect(IntRect({ frameWidth * 3, frameHeight * 5 }, { frameWidth, frameHeight }));
         }
-        else if (enemyMoving) {
+        else if (enemyRunning) {
             enemyFrameTimer += dt;
             if (enemyFrameTimer >= animationSpeed) {
                 enemyFrameTimer = 0.f;
                 enemyRunX = (enemyRunX + 1) % enemyTotalRun;
+                if (enemyRunX == 0 || enemyRunX == 4) {
+                    enemyRun.play();
+                }
                 enemy.setTextureRect(IntRect({ enemyRunX * frameWidth, enemyRunY * frameHeight }, { frameWidth, frameHeight }));
             }
         }
